@@ -5,6 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { auth } from '../../../Firebase';
 import { db } from '../../../Firebase';
 import '../../styles/news.css';
+import API from '../../../services/api';
 
 export default function News() {
   const [newsArticles, setNewsArticles] = useState([]);
@@ -22,39 +23,38 @@ export default function News() {
       }
     }
   }, [location.hash]);
-  
-  useEffect(() => {
-    const newsRef = dbRef(db, 'news');
-    const unsubscribe = onValue(newsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const articles = Object.entries(data).map(([id, value]) => ({
-          id,
-          ...value,
-          isFeatured: value.isFeatured || false
-        }));
-        
-        setNewsArticles(articles.sort((a, b) => {
-          if (a.isFeatured && !b.isFeatured) return -1;
-          if (!a.isFeatured && b.isFeatured) return 1;
-          return new Date(b.date) - new Date(a.date);
-        }));
-      } else {
-        setNewsArticles([]);
-      }
-      setLoading(false);
-    });
 
-    return () => unsubscribe();
+  async function getNews() {
+    const { data } = await API.get("/news");
+
+    if (data) {
+      const articles = Object.entries(data).map(([id, value]) => ({
+        id,
+        ...value,
+        isFeatured: value.isFeatured || false
+      }));
+
+      setNewsArticles(articles.sort((a, b) => {
+        if (a.isFeatured && !b.isFeatured) return -1;
+        if (!a.isFeatured && b.isFeatured) return 1;
+        return new Date(b.date) - new Date(a.date);
+      }));
+    } else {
+      setNewsArticles([]);
+    }
+    setLoading(false);
+  }
+  useEffect(() => {
+    getNews();
   }, []);
 
-  const filteredNews = filter === 'all' 
-    ? newsArticles 
+  const filteredNews = filter === 'all'
+    ? newsArticles
     : newsArticles.filter(article => article.category === filter);
 
   const currentUser = auth.currentUser;
   const isAdmin = currentUser && currentUser.email === 'zeeshan@gmail.com' ||
-  'Khattakjee762@gmail.com' || 'khattak@gmail.com'; // Adjust this condition
+    'Khattakjee762@gmail.com' || 'khattak@gmail.com'; // Adjust this condition
 
   if (loading) return <div className="loading">Loading news...</div>;
 
@@ -90,17 +90,17 @@ export default function News() {
                   </Link>
                 </div>
               )}
-              
+
               {article.isFeatured && (
                 <div className="featured-badge">Featured</div>
               )}
-              
+
               <Link to={`/news/${article.id}`} className="news-link">
                 {article.imageBase64 && (
                   <div className="news-image-container">
-                    <img 
-                      src={article.imageBase64} 
-                      alt={article.title} 
+                    <img
+                      src={article.imageBase64}
+                      alt={article.title}
                       className="news-image"
                       loading="lazy"
                       style={{
