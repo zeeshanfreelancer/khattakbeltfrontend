@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { db } from '../../../Firebase';
 import '../../styles/newsform.css';
+import API from '../../../services/api';
 
 export default function NewsForm({ onSuccess }) {
   const { id } = useParams();
@@ -18,45 +19,42 @@ export default function NewsForm({ onSuccess }) {
     author: 'Admin',
     category: 'Infrastructure',
     imageBase64: '',
-    date: new Date().toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    date: new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     }),
     isFeatured: false
   });
 
+  async function getNewsData(id) {
+    const { data } = await API.get('/news/' + id);
+    setFormData({
+      title: data.title || '',
+      excerpt: data.excerpt || '',
+      content: data.content || '',
+      author: data.author || 'Admin',
+      category: data.category || '',
+      imageBase64: data.imageBase64 || '',
+      date: data.date || new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }),
+      isFeatured: data.isFeatured || false
+    });
+  }
   useEffect(() => {
     if (isEditMode && id) {
-      const newsRef = dbRef(db, `news/${id}`);
-      const unsubscribe = onValue(newsRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          setFormData({
-            title: data.title || '',
-            excerpt: data.excerpt || '',
-            content: data.content || '',
-            author: data.author || 'Admin',
-            category: data.category || '',
-            imageBase64: data.imageBase64 || '',
-            date: data.date || new Date().toLocaleDateString('en-US', { 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            }),
-            isFeatured: data.isFeatured || false
-          });
-        }
-      });
-      return () => unsubscribe();
+      getNewsData(id)
     }
   }, [id, isEditMode]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: type === 'checkbox' ? checked : value 
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
     }));
   };
 
@@ -95,13 +93,13 @@ export default function NewsForm({ onSuccess }) {
 
     try {
       if (isEditMode) {
-        await update(dbRef(db, `news/${id}`), formData);
+        const { data } = await API.put('/news/' + id, formData);
         toast.success('Post updated successfully!');
       } else {
-        await push(dbRef(db, 'news'), formData);
+        const { data } = await API.post('/news/', formData);
         toast.success('Post created successfully!');
       }
-      
+
       if (onSuccess) onSuccess();
       navigate('/news');
     } catch (error) {
@@ -215,8 +213,8 @@ export default function NewsForm({ onSuccess }) {
           {formData.imageBase64 && (
             <div className="image-preview">
               <img src={formData.imageBase64} alt="Preview" />
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setFormData(prev => ({ ...prev, imageBase64: '' }))}
                 className="remove-image"
               >
@@ -228,13 +226,13 @@ export default function NewsForm({ onSuccess }) {
 
         <div className="form-actions">
           <button type="submit" disabled={isSubmitting} className="submit-button">
-            {isSubmitting ? (isEditMode ? 'Updating...' : 'Publishing...') : 
-             (isEditMode ? 'Update Post' : 'Publish Post')}
+            {isSubmitting ? (isEditMode ? 'Updating...' : 'Publishing...') :
+              (isEditMode ? 'Update Post' : 'Publish Post')}
           </button>
-          
+
           {isEditMode && (
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={handleDelete}
               className="delete-button"
             >
